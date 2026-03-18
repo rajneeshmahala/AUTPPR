@@ -1,0 +1,31 @@
+name: Open PR to Main
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list --base main --head dev --state open --json number --jq '.[0].number')
+          if [ -z "$EXISTING" ]; then
+            gh pr create \
+              --base main \
+              --head dev \
+              --title "Merge dev into main" \
+              --body "Automated PR triggered by push to dev."
+          else
+            echo "PR #$EXISTING already exists. Skipping."
+          fi
