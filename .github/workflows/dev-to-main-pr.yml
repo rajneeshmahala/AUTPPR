@@ -13,13 +13,44 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # IMPORTANT for full history
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      # ✅ Step 1: Fetch latest main
+      - name: Fetch main branch
+        run: |
+          git fetch origin main
+
+      # ✅ Step 2: Check for merge conflicts
+      - name: Check merge conflict with main
+        run: |
+          git checkout dev
+          git merge origin/main --no-commit --no-ff || echo "MERGE_FAILED=true" >> $GITHUB_ENV
+
+          if [ "$MERGE_FAILED" = "true" ]; then
+            echo "❌ Merge conflict detected with main branch. Resolve before creating PR."
+            exit 1
+          else
+            echo "✅ No conflicts with main branch."
+          fi
+
+          # Abort merge to clean workspace
+          git merge --abort || true
+
+      # ✅ Step 3: Create PR if no conflict
       - name: Create Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           EXISTING=$(gh pr list --base main --head dev --state open --json number --jq '.[0].number')
+
           if [ -z "$EXISTING" ]; then
             gh pr create \
               --base main \
